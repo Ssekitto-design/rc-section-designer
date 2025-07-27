@@ -1,106 +1,75 @@
-# interaction.py
+# interaction_diagram.py
 
-from section import Section
-from materials import Material
-from src.concrete_block import compute_concrete_block
-from src.detect_failure_mode import detect_failure_mode
-from src.steel_stress import steel_stress
-from src.rebar import RebarLayout
+from collections import namedtuple
+from plot_utils import plot_interaction_diagram
 
-import numpy as np
+# 📦 Result container
+InteractionPoint = namedtuple("InteractionPoint", ["neutral_axis_mm", "axial_force_N", "bending_moment_Nmm"])
 
-def compute_strain(neutral_axis: float, depth: float) -> float:
+# Core generator function
+def generate_interaction_diagram(width_mm: float, depth_mm: float, f_cd: float, steps: int = 20) -> list[InteractionPoint]:
     """
-    Computes strain at a given depth based on neutral axis.
+    Generates axial-moment interaction points from concrete stress block contribution alone.
+
+    Assumes rectangular EC2 block and linear variation with neutral axis depth.
 
     Parameters:
-    - neutral_axis (float): Position of neutral axis from top (mm)
-    - depth (float): Depth of bar from top face (mm)
+        width_mm (float): Section width in mm
+        depth_mm (float): Section depth in mm
+        f_cd (float): Concrete design compressive strength in MPa
+        steps (int): Number of x-depth steps across section (default: 20)
 
     Returns:
-    - float: Calculated strain
-    """
-    return (neutral_axis - depth) / neutral_axis
-
-
-def compute_steel_contribution(
-    layout: RebarLayout, h: float, neutral_axis: float, f_yd: float
-) -> tuple:
-    """
-    Computes total force and moment from steel bars.
-
-    Returns:
-    - Tuple: (total_force, total_moment, top_depths, bottom_depths)
-    """
-    total_force = 0
-    total_moment = 0
-    top_depths = []
-    bottom_depths = []
-
-    for bar in layout.bars:
-        depth = bar["depth"]
-        area = bar["area_mm2"]
-
-        strain = compute_strain(neutral_axis, depth)
-        stress = steel_stress(strain, f_yd)
-        force = stress * area
-        moment = force * (h / 2 - depth)
-
-        total_force += force
-        total_moment += moment
-
-        if depth < h / 2:
-            top_depths.append(depth)
-        else:
-            bottom_depths.append(depth)
-
-    return total_force, total_moment, top_depths, bottom_depths
-
-
-def generate_interaction_diagram_with_modes(
-    layout: RebarLayout,
-    section: Section,
-    concrete: Material,
-    steel: Material,
-    points: int = 100
-) -> list:
-    """
-    Generates M–N interaction diagram with failure mode tagging.
-
-    Parameters:
-    - layout (RebarLayout): Steel layout
-    - section (Section): Concrete section geometry
-    - concrete (Material): Concrete material object
-    - steel (Material): Steel material object
-    - points (int): Number of neutral axis divisions
-
-    Returns:
-    - list: Diagram data with axial load, moment, and failure mode
+        List[InteractionPoint]: Collection of axial force and bending moment values
     """
     diagram = []
-    f_cd = concrete.fcd
-    f_yd = steel.fyd
-    b = section.b
-    h = section.h
-
-    for x in np.linspace(10, h - 10, points):  # neutral axis depth
-        c_force, c_moment = compute_concrete_block(x, b, f_cd)
-
-        s_force, s_moment, top_depths, bottom_depths = compute_steel_contribution(
-            layout, h, x, f_yd
-        )
-
-        axial = c_force + s_force
-        moment = c_moment + s_moment
-
-        top_avg = np.mean(top_depths) if top_depths else 0
-        bot_avg = np.mean(bottom_depths) if bottom_depths else h
-        mode = detect_failure_mode(x, top_avg, bot_avg)
-
-        diagram.append({
-            "axial_kN": axial / 1000,
-            "moment_kNm": moment / 1000000,
-            "failure_mode": mode
-        })
-
+    for i in range(steps + 1):
+        x = depth_mm * i / steps  # neutral axis depth from top
+        block = compute_concrete_block(x, width_mm, f_cd)
+        diagram.append(InteractionPoint(x, block.axial_force_N, block.bending_moment_Nmm))
     return diagram
+
+# Concrete block model
+def compute_concrete_block(x: float, width_mm: float, f_cd: float) -> InteractionPoint:
+    """
+    Computes axial force and moment from EC2 rectangular stress block.
+
+    Parameters:
+        x (float): Neutral axis depth (mm)
+        width_mm (float): Section width (mm)
+        f_cd (float): Design compressive strength (MPa)
+
+    Returns:
+        InteractionPoint: Axial force and moment at depth x
+    """
+    if x <= 0:
+        return InteractionPoint(x, 0.0, 0.0)
+
+    alpha = 0.85   # EC2 strength reduction factor
+    gamma = 0.8    # EC2 block height ratio
+
+    stress_block_depth = gamma * x
+    stress = alpha * f_cd
+    area = stress_block_depth * width_mm
+
+    force_N = stress * area
+    moment_arm = x * 0.4
+    moment_Nmm = force_N * moment_arm
+
+    return InteractionPoint(x, force_N, moment_Nmm)
+
+# Optional test block
+if __name__ == "__main__":
+    # Sample test values
+    width_mm = 300
+    depth_mm = 500
+    f_cd = 25
+
+    points = generate_interaction_diagram(width_mm, depth_mm, f_cd)
+
+    # Extract P and M axes with unit conversions
+    P = [pt.axial_force_N / 1000 for pt in points]     # kN
+    M = [pt.bending_moment_Nmm / 1e6 for pt in points] # kNm
+
+    # Plot visuals
+    plot_interaction_diagram(P, M, title="EC2 Concrete Block Interaction Diagram")

@@ -2,6 +2,14 @@
 
 import matplotlib.pyplot as plt
 
+def setup_plot_theme():
+    """Applies consistent styling to all plots."""
+    plt.style.use('seaborn-v0_8-darkgrid')
+    plt.rcParams['font.size'] = 10
+    plt.rcParams['axes.labelweight'] = 'bold'
+    plt.rcParams['figure.facecolor'] = 'white'
+
+
 def plot_interaction_diagram(diagram: list, save_path: str = None):
     """
     Plots the interaction diagram with failure modes.

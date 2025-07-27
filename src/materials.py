@@ -1,4 +1,4 @@
-# material.py
+# materials.py
 
 from enum import Enum
 
@@ -6,9 +6,10 @@ class DesignCode(Enum):
     EUROCODE = 'EUROCODE'
     ACI = 'ACI'
 
+# Partial safety factors by design code
 DESIGN_CODE_FACTORS = {
     DesignCode.EUROCODE: {'gamma_c': 1.5, 'gamma_s': 1.15},
-    DesignCode.ACI: {'gamma_c': 1.0, 'gamma_s': 1.0}  # Placeholder — adjust as needed
+    DesignCode.ACI: {'gamma_c': 1.0, 'gamma_s': 1.0}  # Placeholder — customize if needed
 }
 
 class Material:
@@ -16,15 +17,15 @@ class Material:
     Represents structural material properties for concrete or steel.
 
     Parameters:
-    - name (str): Identifier for material (e.g. 'C30/37' or 'B500B')
-    - fck (float, optional): Characteristic compressive strength of concrete in MPa
-    - fyk (float, optional): Characteristic yield strength of steel in MPa
-    - unit_weight (float, optional): Material density in kN/m³
-    - code (DesignCode): Selected design code standard (Eurocode or ACI)
+        name (str): Identifier (e.g. 'C30/37', 'B500B')
+        fck (float, optional): Concrete compressive strength (MPa)
+        fyk (float, optional): Steel yield strength (MPa)
+        unit_weight (float, optional): Density in kN/m³
+        code (DesignCode): Selected design code standard
 
     Attributes:
-    - fcd (float): Design compressive strength (depends on code)
-    - fyd (float): Design yield strength (depends on code)
+        fcd (float): Design compressive strength (MPa)
+        fyd (float): Design yield strength (MPa)
     """
 
     def __init__(
@@ -41,25 +42,15 @@ class Material:
         self.unit_weight = unit_weight
         self.code = code
 
-        factors = DESIGN_CODE_FACTORS[self.code]
+        self._apply_design_factors()
+
+    def _apply_design_factors(self):
+        factors = DESIGN_CODE_FACTORS.get(self.code, {})
         self.fcd = self.fck / factors['gamma_c'] if self.fck else None
         self.fyd = self.fyk / factors['gamma_s'] if self.fyk else None
 
-    def __repr__(self) -> str:
-        props = [f"{self.name}"]
-        if self.fck:
-            props.append(f"fck={self.fck} MPa → fcd={self.fcd:.2f} MPa ({self.code.value})")
-        if self.fyk:
-            props.append(f"fyk={self.fyk} MPa → fyd={self.fyd:.2f} MPa ({self.code.value})")
-        return " | ".join(props)
-
     def to_dict(self) -> dict:
-        """
-        Converts material properties to a dictionary format.
-
-        Returns:
-        - dict: Material data including design code and strengths
-        """
+        """Returns a dictionary of material properties."""
         return {
             'name': self.name,
             'fck': self.fck,
@@ -69,3 +60,11 @@ class Material:
             'unit_weight': self.unit_weight,
             'code': self.code.value
         }
+
+    def __repr__(self) -> str:
+        summary = [self.name]
+        if self.fck:
+            summary.append(f"fck={self.fck} MPa → fcd={self.fcd:.2f} MPa ({self.code.value})")
+        if self.fyk:
+            summary.append(f"fyk={self.fyk} MPa → fyd={self.fyd:.2f} MPa ({self.code.value})")
+        return " | ".join(summary)

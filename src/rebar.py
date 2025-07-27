@@ -1,89 +1,78 @@
 # rebar.py
 
-import math
+from math import pi
+
+
+class RebarGroup:
+    """
+    Represents a group of reinforcement bars at a given depth.
+
+    Attributes:
+        diameter_mm (float): Bar diameter in millimeters.
+        count (int): Number of bars in the group.
+        depth_mm (float): Depth of bars from top fiber (mm).
+    """
+
+    def __init__(self, diameter_mm: float, count: int, depth_mm: float):
+        if diameter_mm <= 0:
+            raise ValueError("Bar diameter must be positive.")
+        if count <= 0:
+            raise ValueError("Bar count must be a positive integer.")
+        if depth_mm <= 0:
+            raise ValueError("Bar depth must be positive.")
+
+        self.diameter_mm = diameter_mm
+        self.count = count
+        self.depth_mm = depth_mm
+
+    @property
+    def area_mm2(self) -> float:
+        """Returns total area of the group in mm²."""
+        single_area = (pi * self.diameter_mm ** 2) / 4
+        return single_area * self.count
+
+    def __repr__(self) -> str:
+        return f"{self.count}ø{self.diameter_mm} @ {self.depth_mm}mm"
+
 
 class RebarLayout:
     """
-    Stores and manages groups of reinforcing bars in a concrete section.
-
-    Each group includes:
-    - Diameter (mm)
-    - Bar count
-    - Depth from compression face (mm)
-    - Total steel area in mm²
+    Manages layout of all rebar groups in a concrete section.
 
     Methods:
-    - add_group(): Adds a rebar group to the layout
-    - total_steel_area(): Computes total steel area As
-    - compute_bar_area(): Helper for area of a single bar
-    - sort_by_depth(): Optional, sorts groups by vertical position
-    - to_dict(): Converts layout to list of group dictionaries
+        add_group(diameter_mm, count, depth_mm): Adds a rebar group.
+        load_from_list(data): Loads layout from list of dicts.
+        total_area(): Returns total steel area (mm²).
+        __repr__(): Preview-friendly layout string.
     """
 
     def __init__(self):
-        self.bars = []  # Each bar group is a dict
+        self.groups = []
 
     def add_group(self, diameter_mm: float, count: int, depth_mm: float):
+        group = RebarGroup(diameter_mm, count, depth_mm)
+        self.groups.append(group)
+
+    def load_from_list(self, data: list[dict]):
         """
-        Adds a group of identical bars to the layout.
+        Bulk-loads rebar layout from a list of dictionaries.
 
-        Parameters:
-        - diameter_mm (float): Diameter of each bar in mm
-        - count (int): Number of bars in the group
-        - depth_mm (float): Vertical position from top (compression face) in mm
+        Each dict must have keys: 'diameter', 'count', 'depth'
         """
-        area_per_bar = self.compute_bar_area(diameter_mm)
-        total_area = count * area_per_bar
+        for entry in data:
+            try:
+                self.add_group(entry['diameter'], entry['count'], entry['depth'])
+            except KeyError as e:
+                raise KeyError(f"Missing key in rebar entry: {e}")
 
-        self.bars.append({
-            "diameter": diameter_mm,
-            "count": count,
-            "depth": depth_mm,
-            "area_mm2": total_area
-        })
+    def total_area(self) -> float:
+        """Returns total steel area across all groups (mm²)."""
+        return sum(group.area_mm2 for group in self.groups)
 
-    def compute_bar_area(self, diameter_mm: float) -> float:
-        """
-        Computes area of a single bar.
-
-        Parameters:
-        - diameter_mm (float): Diameter in mm
-
-        Returns:
-        - float: Cross-sectional area in mm²
-        """
-        return math.pi * (diameter_mm / 2) ** 2
-
-    def total_steel_area(self) -> float:
-        """
-        Returns total area of steel reinforcement in the layout.
-
-        Returns:
-        - float: Cumulative As in mm²
-        """
-        return sum(bar["area_mm2"] for bar in self.bars)
-
-    def sort_by_depth(self, reverse: bool = False):
-        """
-        Sorts rebar groups by depth (vertical position).
-
-        Parameters:
-        - reverse (bool): If True, sorts deepest to shallowest
-        """
-        self.bars.sort(key=lambda bar: bar["depth"], reverse=reverse)
-
-    def to_dict(self) -> list:
-        """
-        Converts layout to list of rebar group dictionaries.
-
-        Returns:
-        - list: Rebar layout metadata
-        """
-        return self.bars
+    def __iter__(self):
+        return iter(self.groups)
 
     def __repr__(self) -> str:
-        layout_str = "\n".join(
-            f"Ø{bar['diameter']} × {bar['count']} @ {bar['depth']}mm → {bar['area_mm2']:.1f} mm²"
-            for bar in self.bars
-        )
-        return f"Rebar Layout:\n{layout_str}\nTotal As = {self.total_steel_area():.1f} mm²"
+        if not self.groups:
+            return "No rebar groups defined"
+        return "Rebar Layout:\n  " + "\n  ".join(str(g) for g in self.groups)

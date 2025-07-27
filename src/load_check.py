@@ -13,6 +13,21 @@ LoadCheckResult = namedtuple("LoadCheckResult", [
     "failure_mode"
 ])
 
+def validate_section(fc, fy, b, h, rebar_layout, design_N, design_M):
+    # Simplified placeholder logic
+    capacity_N = fc * b * h * 0.4
+    capacity_M = fy * sum(rebar_layout) * h * 0.5
+
+    passes_N = design_N <= capacity_N
+    passes_M = design_M <= capacity_M
+
+    return {
+        "passes_N": passes_N,
+        "passes_M": passes_M,
+        "capacity_N": capacity_N,
+        "capacity_M": capacity_M
+    }
+
 def check_load(
     applied_N: float,
     applied_M: float,

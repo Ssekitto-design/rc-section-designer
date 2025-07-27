@@ -1,37 +1,34 @@
+# plotting.py
+
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
 
-def plot_interaction_diagram(diagram_data, title="Interaction Diagram with Failure Modes"):
+def plot_interaction_diagram(diagram: list, save_path: str = None):
     """
-    Plots axial-moment points with colors based on failure mode.
+    Plots the interaction diagram with failure modes.
+
     Parameters:
-    - diagram_data: list of tuples (axial, moment, mode)
-    - title: chart title (optional)
+    - diagram (list): Output from generate_interaction_diagram_with_modes()
+    - save_path (str, optional): If given, saves the plot to file
     """
-
     colors = {
-        "Compression-Controlled": "red",
-        "Balanced": "orange",
-        "Tension-Controlled": "blue"
+        "compression": "red",
+        "tension": "blue",
+        "balanced": "green",
+        "other": "gray"
     }
 
-    plt.figure(figsize=(8, 6))
-    for pt in diagram_data:
-        axial = pt["axial_kN"]
-        moment = pt["moment_kNm"]
-        mode = pt["failure_mode"]
-        plt.scatter(moment, axial, color=colors.get(mode, "gray"), s=25)
-
-    legend_elements = [
-        Patch(facecolor='red', label='Compression-Controlled'),
-        Patch(facecolor='orange', label='Balanced'),
-        Patch(facecolor='blue', label='Tension-Controlled')
-    ]
-    plt.legend(handles=legend_elements, loc='best')
+    for pt in diagram:
+        axial = pt['axial_kN']
+        moment = pt['moment_kNm']
+        mode = pt['failure_mode']
+        plt.scatter(moment, axial, color=colors.get(mode, "gray"), s=20)
 
     plt.xlabel("Moment (kNm)")
-    plt.ylabel("Axial Force (kN)")
-    plt.title(title)
+    plt.ylabel("Axial Load (kN)")
+    plt.title("M–N Interaction Diagram")
     plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+    else:
+        plt.show()

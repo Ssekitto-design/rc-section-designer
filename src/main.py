@@ -1,28 +1,43 @@
-from rebar import RebarLayout
-from section import Section
-from materials import Material
-from interaction_diagram import generate_interaction_diagram_with_modes
-from plotting import plot_interaction_diagram
+# main.py
 
-# Define materials
-concrete = Material("C30/37", fck=30, unit_weight=24)
-steel = Material("B500B", fyk=500, unit_weight=78.5)
+# Step 1: Setup and Imports
+import os
+from src.utils import ensure_export_folder
+from src.materials import Material, DesignCode
+from src.section import Section
+from src.rebar import RebarLayout
+from src.interaction_diagram import generate_interaction_diagram_with_modes
+from src.export import export_interaction_to_csv
+from src.plotting import plot_interaction_diagram
 
-# Define section
-section = Section(b=300, h=500, cover=40, material=concrete)
+# Create exports folder if missing
+ensure_export_folder()
 
-# Define reinforcement
+# Step 2: Define Materials (Eurocode)
+concrete = Material(name="C30/37", fck=30, unit_weight=25, code=DesignCode.EUROCODE)
+steel = Material(name="B500B", fyk=500, code=DesignCode.EUROCODE)
+
+# Step 3: Define Section Geometry
+section = Section(b=300, h=500, cover=30, material=concrete)
+
+# Step 4: Define Rebar Layout
 layout = RebarLayout()
-layout.add_group(16, 4, 40)       # top bars
-layout.add_group(20, 4, 460)      # bottom bars
+layout.add_group(diameter_mm=16, count=4, depth_mm=50)     # Top layer
+layout.add_group(diameter_mm=20, count=4, depth_mm=450)    # Bottom layer
 
-# Generate diagram
-diagram = generate_interaction_diagram_with_modes(layout, section, concrete, steel)
+# Step 5: Generate Interaction Diagram
+diagram = generate_interaction_diagram_with_modes(
+    layout=layout,
+    section=section,
+    concrete=concrete,
+    steel=steel,
+    points=100  # Resolution
+)
 
-# Print sample points
-for i in range(0, len(diagram), 10):
-    pt = diagram[i]
-    print(f"Axial: {pt['axial_kN']:.1f} kN | Moment: {pt['moment_kNm']:.1f} kNm | Mode: {pt['failure_mode']}")
+# Step 6: Export to CSV
+export_interaction_to_csv(diagram, filename="exports/mn_diagram.csv")
 
-# Visualize interaction behavior with failure modes
-plot_interaction_diagram(diagram)
+# Step 7: Plot and Save PNG
+plot_interaction_diagram(diagram, save_path="exports/mn_diagram.png")
+
+print("✅ Interaction diagram generated and saved to /exports/")
